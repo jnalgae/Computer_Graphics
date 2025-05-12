@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Team project</title>
+    <style>
+        canvas { border: 1px solid black; }
+        #ui {
+        position: absolute;
+        top: 20px;
+        left: 200px;
+        background: white;
+        padding: 5px 10px;
+      }
+    </style>
+
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        attribute vec4 vPosition;
+        uniform mat4 modelViewMatrix;
+        uniform mat4 projectionMatrix;
+        void main() {
+            gl_Position = projectionMatrix * modelViewMatrix * vPosition;
+        }
+    </script>
+
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+
+        uniform vec4 uColor;
+
+        void main() {
+            gl_FragColor = uColor;
+        }
+    </script>
+
+    <script type="text/javascript" src="../Common/webgl-utils.js"></script>
+    <script type="text/javascript" src="../Common/initShaders.js"></script>
+    <script type="text/javascript" src="../Common/MV.js"></script>
+    <script type="text/javascript" src="wallE.js"></script>
+  </head>
+
+  <body>
+    <div id="ui">
+      <b>Camera Control:</b><br />
+      <label>eye X:</label>
+      <input type="range" id="eyeX" min="-20" max="20" step="0.05" value="-5" />
+      <label>eye Y:</label>
+      <input type="range" id="eyeY" min="-20" max="20" step="0.05" value="4" />
+      <label>eye Z:</label>
+      <input type="range" id="eyeZ" min="13" max="20" step="0.05" value="18" />
+      <br />
+      <label>at X:</label>
+      <input type="range" id="atX" min="-5" max="5" step="0.05" value="0" />
+      <label>at Y:</label>
+      <input type="range" id="atY" min="-5" max="5" step="0.05" value="0" />
+      <label>at Z:</label>
+      <input type="range" id="atZ" min="-5" max="5" step="0.05" value="0" />
+      <br />
+      <label>up X:</label>
+      <input type="range" id="upX" min="-1" max="1" step="0.05" value="0" />
+      <label>up Y:</label>
+      <input type="range" id="upY" min="-1" max="1" step="0.05" value="1" />
+      <label>up Z:</label>
+      <input type="range" id="upZ" min="-1" max="1" step="0.05" value="0" />
+    </div>
+
+    <canvas id="gl-canvas" width="1024" height="1024">
+    Oops ... your browser doesn't support the HTML5 canvas element.
+    </canvas>
+  </body>
+</html>
