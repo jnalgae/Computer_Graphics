@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="utf-8">
+    <meta charset="utf-8" />
     <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <title>Team project</title>
     <style>
-        canvas { border: 1px solid black; }
-        #ui {
+      canvas {
+        border: 1px solid black;
+      }
+      #ui {
         position: absolute;
         top: 20px;
         left: 200px;
@@ -18,22 +20,22 @@
     </style>
 
     <script id="vertex-shader" type="x-shader/x-vertex">
-        attribute vec4 vPosition;
-        uniform mat4 modelViewMatrix;
-        uniform mat4 projectionMatrix;
-        void main() {
-            gl_Position = projectionMatrix * modelViewMatrix * vPosition;
-        }
+      attribute vec4 vPosition;
+      uniform mat4 modelViewMatrix;
+      uniform mat4 projectionMatrix;
+      void main() {
+          gl_Position = projectionMatrix * modelViewMatrix * vPosition;
+      }
     </script>
 
     <script id="fragment-shader" type="x-shader/x-fragment">
-        precision mediump float;
+      precision mediump float;
 
-        uniform vec4 uColor;
+      uniform vec4 uColor;
 
-        void main() {
-            gl_FragColor = uColor;
-        }
+      void main() {
+          gl_FragColor = uColor;
+      }
     </script>
 
     <script type="text/javascript" src="../Common/webgl-utils.js"></script>
@@ -68,7 +70,7 @@
     </div>
 
     <canvas id="gl-canvas" width="1024" height="1024">
-    Oops ... your browser doesn't support the HTML5 canvas element.
+      Oops ... your browser doesn't support the HTML5 canvas element.
     </canvas>
   </body>
 </html>
