@@ -9,6 +9,7 @@
     <style>
       canvas {
         border: 1px solid black;
+        margin-left: 40px;
       }
       #ui {
         position: absolute;
@@ -48,11 +49,11 @@
     <div id="ui">
       <b>Camera Control:</b><br />
       <label>eye X:</label>
-      <input type="range" id="eyeX" min="-20" max="20" step="0.05" value="-5" />
+      <input type="range" id="eyeX" min="-20" max="20" step="0.05" value="0" />
       <label>eye Y:</label>
-      <input type="range" id="eyeY" min="-20" max="20" step="0.05" value="4" />
+      <input type="range" id="eyeY" min="-20" max="20" step="0.05" value="0" />
       <label>eye Z:</label>
-      <input type="range" id="eyeZ" min="13" max="20" step="0.05" value="18" />
+      <input type="range" id="eyeZ" min="13" max="20" step="0.05" value="20" />
       <br />
       <label>at X:</label>
       <input type="range" id="atX" min="-5" max="5" step="0.05" value="0" />
@@ -69,7 +70,7 @@
       <input type="range" id="upZ" min="-1" max="1" step="0.05" value="0" />
     </div>
 
-    <canvas id="gl-canvas" width="1024" height="1024">
+    <canvas id="gl-canvas" width="1600" height="800">
       Oops ... your browser doesn't support the HTML5 canvas element.
     </canvas>
   </body>

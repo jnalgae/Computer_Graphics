@@ -39,7 +39,7 @@ let figure = new Array(numNodes);
 let theta = new Array(numNodes).fill(0);
 let stack = [];
 
-let _eye = [5, 2, 20],
+let _eye = [3, 2, 20],
   at = [0, 0, 0],
   up = [0, 1, 0];
 let fovy = 45,
@@ -228,7 +228,7 @@ function torso() {
 function neck() {
   gl.uniform4fv(colorLoc, flatten(colors.neck));
   gl.bufferData(gl.ARRAY_BUFFER, flatten(pointsArray), gl.STATIC_DRAW);
-  let m = mult(modelViewMatrix, scale4(0.5, 0.9, 0.3));
+  let m = mult(modelViewMatrix, scale4(0.5, 1.0, 0.3));
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
   gl.drawArrays(gl.TRIANGLES, 0, pointsArray.length);
 }
@@ -332,17 +332,18 @@ function initNodes(id) {
 
   switch (id) {
     case torsoId:
-      m = translate(0, 0, 0);
+      m = translate(0, -3, 0);
+      m = mult(m, scale4(0.7, 1.0, 1.0));
       figure[torsoId] = createNode(m, torso, null, neckId);
       break;
 
     case neckId:
-      m = translate(0, 2.0, 0);
+      m = translate(0, 1.8, 0);
       figure[neckId] = createNode(m, neck, leftTreadId, headId);
       break;
 
     case headId:
-      m = translate(0, 0.7, 0);
+      m = translate(0, 0.6, 0);
       figure[headId] = createNode(m, head, null, eyeLeftOuterId);
       break;
 
