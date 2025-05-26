@@ -49,8 +49,11 @@ let fovy = 45,
 
 let colorLoc;
 
+let batteryLowColor = false;
+
 let trashPosition = vec3(7.0, 4.0, 0.0); // the first position of trash
 let trashCanPosition = vec3(6.2, -5.6, 0.0); // the first position of trash can
+let chargingPos = vec3(-6.3, -5.4, 0.0);
 let isDragging = false;
 let dragOffset = vec2(0, 0);
 
@@ -551,6 +554,21 @@ function renderTrashCan(position) {
   gl.drawArrays(gl.TRIANGLES, 0, cylinderArray.length);
 }
 
+// ** Charging Station Part ** //
+colors.chargingStation = rgbToVec4(76, 216, 21);
+
+function renderChargingStation(position) {
+  gl.uniform4fv(colorLoc, flatten(colors.chargingStation));
+  gl.bufferData(gl.ARRAY_BUFFER, flatten(cylinderArray), gl.STATIC_DRAW);
+  let m = mult(
+    modelViewMatrix,
+    translate(position[0], position[1], position[2])
+  );
+  m = mult(m, scale4(2.0, 0.5, 0.4));
+  gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
+  gl.drawArrays(gl.TRIANGLES, 0, cylinderArray.length);
+}
+
 // ** Dragging and Dropping the Trash ** //
 /**
  * getWorldCoordsFromMouse: Computes the world-space ray direction from the mouse position.
@@ -681,9 +699,11 @@ let isFallingToGround = false,
   isReturningRotation = false,
   isReturningToOrigin = false,
   isFinalRotation = false,
-  isDroppingInTrashCan = false;
+  isDroppingInTrashCan = false,
+  isReturningToOriginCS = false,
+  isFinalRotationCS = false;
 
-let wallEPosition = vec3(-3.5, 0, 0),
+let wallEPosition = vec3(-3.0, 0, 0),
   wallERotation = 0,
   targetRotation = 0;
 
@@ -703,11 +723,21 @@ let trashGrabOffset = vec3(0, 0, 0),
   trashList = [],
   fallTargetY = -5.0;
 
+let translationCount = 0;
+let isBatteryLow = false,
+  hasRotatedToCS = false,
+  hasRotatedToFront = false,
+  hasTranslatedCS = false;
+
 const arm1Length = 1.9,
   arm2Length = 1.9,
   wrist1Length = 1.0,
   wrist2Length = 1.0,
   TRASH_HEIGHT = 0.6;
+
+let chargingTimer = 0;
+const maxChargingTime = 360;
+let hasRecoveredColor = false;
 
 function getWorldPositionOfClaw() {
   let m = mat4();
@@ -722,6 +752,31 @@ function getWorldPositionOfClaw() {
   const localClawTip = vec4(0.0, -0.65, 0.4, 1.0);
   const worldPos = mult(m, localClawTip);
   return vec3(worldPos[0], worldPos[1], worldPos[2]);
+}
+
+function renderChargingGaugeBars() {
+  if (chargingTimer >= maxChargingTime) return;
+  const barCount = Math.ceil((chargingTimer / maxChargingTime) * 6);
+  const basePos = vec3(-7.5, wallEPosition[1] + 1, wallEPosition[2]);
+  const spacing = 0.3;
+
+  for (let i = 0; i < barCount; i++) {
+    const offsetX = (i + 1) * spacing;
+    const position = vec3(basePos[0] + offsetX, basePos[1], basePos[2]);
+    renderChargingBar(position);
+  }
+}
+
+function renderChargingBar(position) {
+  gl.uniform4fv(colorLoc, flatten(rgbToVec4(76, 216, 21)));
+  gl.bufferData(gl.ARRAY_BUFFER, flatten(pointsArray), gl.STATIC_DRAW);
+  let m = mult(
+    modelViewMatrix,
+    translate(position[0], position[1], position[2])
+  );
+  m = mult(m, scale4(0.3, 0.5, 0.1));
+  gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
+  gl.drawArrays(gl.TRIANGLES, 0, pointsArray.length);
 }
 
 function render() {
@@ -774,6 +829,7 @@ function render() {
   }
   renderTrash(trashPosition);
   renderTrashCan(trashCanPosition);
+  renderChargingStation(chargingPos);
 
   const trashLanded =
     !isDraggingTrash &&
@@ -788,7 +844,7 @@ function render() {
     const diff = targetRotation - wallERotation;
 
     if (Math.abs(diff) > 1) {
-      wallERotation += Math.sign(diff) * 2;
+      wallERotation += Math.sign(diff) * 1.5;
     } else {
       wallERotation = targetRotation;
       isMovingToTrash = true;
@@ -938,18 +994,21 @@ function render() {
       }
     } else if (isReturningRotation) {
       // rotate to original position
-      wallERotation += (targetRotation - wallERotation) * 0.02;
+      const diff = targetRotation - wallERotation;
 
-      if (Math.abs(wallERotation - targetRotation) < 1.0) {
+      if (Math.abs(diff) < 1.0) {
         wallERotation = targetRotation;
         isReturningRotation = false;
         isReturningToOrigin = true;
         console.log("Rotated → now walk to origin");
+      } else {
+        wallERotation += Math.sign(diff) * 1.5;
       }
     } else if (isReturningToOrigin) {
-      // Smoothly moves Wall-E back to original position using linear interpolation
-      wallEPosition = mix(wallEPosition, targetPos, 0.01);
-      const closeEnough = length(subtract(wallEPosition, targetPos)) < 0.05;
+      // wall-E moves to original position
+      const moveDir = normalize(subtract(targetPos, wallEPosition));
+      wallEPosition = add(wallEPosition, scale(0.02, moveDir));
+      const closeEnough = length(subtract(wallEPosition, targetPos)) < 0.2;
 
       if (closeEnough) {
         isReturningToOrigin = false;
@@ -960,7 +1019,7 @@ function render() {
       // wall-E turns to face forward
       wallERotation += (0 - wallERotation) * 0.02;
 
-      if (Math.abs(wallERotation) < 1.0) {
+      if (Math.abs(wallERotation) < 1.5) {
         wallERotation = 0;
         isFinalRotation = false;
         hasReturnedToOriginalPose = true;
@@ -989,6 +1048,143 @@ function render() {
       wrist1Yaw = -0.5;
       wrist2Yaw = -0.5;
       wristTarget = -1.5;
+      // if (translationCount < 2) {
+      //   translationCount += 1;
+      // } else {
+      //   translationCount = 0;
+      //   isBatteryLow = true;
+      // }
+      isBatteryLow = true;
+    }
+  }
+
+  // when wall E has completed three trash drops
+  if (isBatteryLow) {
+    if (!hasRotatedToCS) {
+      if (!batteryLowColor) {
+        colors.torso = rgbToVec4(0, 0, 0); // becomes black
+        colors.arm = rgbToVec4(0, 0, 0);
+        colors.neck = rgbToVec4(0, 0, 0);
+        gl.uniform4fv(colorLoc, flatten(colors.torso));
+        gl.uniform4fv(colorLoc, flatten(colors.arm));
+        gl.uniform4fv(colorLoc, flatten(colors.neck));
+      }
+
+      // it rotates to the charging station
+      let targetRotation = -90;
+      wallERotation += Math.sign(targetRotation - wallERotation) * 1.5;
+
+      if (Math.abs(targetRotation - wallERotation) <= 1.0) {
+        wallERotation = targetRotation;
+        hasRotatedToCS = true;
+        hasTranslatedCS = false;
+        console.log("Finished rotating to charging station.");
+      }
+    }
+
+    // it translates to the charging station
+    if (hasRotatedToCS && !hasTranslatedCS) {
+      const moveDir = vec3(
+        Math.sin((wallERotation * Math.PI) / 180),
+        0,
+        Math.cos((wallERotation * Math.PI) / 180)
+      );
+      const flatCS = vec2(chargingPos[0], chargingPos[2]);
+      const flatWalle = vec2(wallEPosition[0], wallEPosition[2]);
+      const dist = length(subtract(flatCS, flatWalle));
+
+      if (dist <= 0.15) {
+        hasTranslatedCS = true;
+      } else {
+        wallEPosition = add(wallEPosition, scale(0.02, moveDir));
+      }
+    }
+
+    // it rotates to the front
+    if (hasTranslatedCS && !hasRotatedToFront) {
+      let targetRotation = 0;
+      wallERotation += Math.sign(targetRotation - wallERotation) * 1.0;
+
+      if (Math.abs(wallERotation) < 0.01) {
+        wallERotation = 0;
+        hasRotatedToFront = true;
+      }
+    }
+
+    if (hasRotatedToFront) {
+      const chargingDist = length(
+        subtract(
+          vec2(wallEPosition[0], wallEPosition[2]),
+          vec2(chargingPos[0], chargingPos[2])
+        )
+      );
+      const isCharging = chargingDist < 0.8 && isBatteryLow;
+
+      // gauge bar filling interval
+      if (isCharging) {
+        chargingTimer = Math.min(chargingTimer + 1, maxChargingTime);
+        renderChargingGaugeBars();
+        hasRecoveredColor = false;
+      } else {
+        chargingTimer = 0;
+        hasRecoveredColor = false;
+      }
+
+      // it finishes charging
+      if (chargingTimer >= maxChargingTime && !hasRecoveredColor) {
+        colors.torso = rgbToVec4(248, 175, 58); // becomes original color
+        colors.arm = rgbToVec4(248, 175, 58);
+        colors.neck = rgbToVec4(128, 77, 26);
+        gl.uniform4fv(colorLoc, flatten(colors.torso));
+        gl.uniform4fv(colorLoc, flatten(colors.arm));
+        gl.uniform4fv(colorLoc, flatten(colors.neck));
+        hasRecoveredColor = true;
+        fallTargetY = -4.7;
+        trashList = [];
+      }
+    }
+
+    // it rotates to the origin
+    if (hasRecoveredColor && !isReturningToOriginCS && !isFinalRotationCS) {
+      const targetRotation = 90;
+      wallERotation += Math.sign(targetRotation - wallERotation) * 1.0;
+
+      if (Math.abs(targetRotation - wallERotation) < 1.0) {
+        wallERotation = targetRotation;
+        isReturningToOriginCS = true;
+        console.log("rotate to origin");
+      }
+    }
+
+    // it translates to the origin
+    if (isReturningToOriginCS) {
+      let targetPos = vec3(-3.0, 0, 0);
+      const moveDir = normalize(subtract(targetPos, wallEPosition));
+      wallEPosition = add(wallEPosition, scale(0.02, moveDir));
+      const closeEnough = length(subtract(wallEPosition, targetPos)) < 0.05;
+
+      if (closeEnough) {
+        isReturningToOriginCS = false;
+        isFinalRotationCS = true;
+        console.log("CS Arrived at origin");
+      }
+    }
+
+    // it rotates to the front
+    if (isFinalRotationCS) {
+      let targetRotation = -90;
+      wallERotation += Math.sign(targetRotation - wallERotation) * 1.0;
+
+      if (Math.abs(wallERotation) < 1.0) {
+        wallERotation = 0;
+        hasRotatedToFront = false;
+        hasTranslatedCS = false;
+        hasRotatedToCS = false;
+        isBatteryLow = false;
+        hasRecoveredColor = false;
+        console.log("CS Final rotation done → fully reset.");
+        isFinalRotationCS = false;
+      }
     }
   }
 
