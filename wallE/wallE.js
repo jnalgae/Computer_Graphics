@@ -93,24 +93,11 @@ let vertices = [
   vec4(0.5, -0.5, -0.5, 1.0),
 ];
 
-function quad(a, b, c, d) {
-  var t1 = subtract(vertices[b], vertices[a]);
-  var t2 = subtract(vertices[c], vertices[b]);
-  var normal = cross(t1, t2);
-  var normal = vec3(normal);
+let faces = []; // global array to hold face indices
 
-  pointsArray.push(vertices[a]);
-  normalsArray.push(normal);
-  pointsArray.push(vertices[b]);
-  normalsArray.push(normal);
-  pointsArray.push(vertices[c]);
-  normalsArray.push(normal);
-  pointsArray.push(vertices[a]);
-  normalsArray.push(normal);
-  pointsArray.push(vertices[c]);
-  normalsArray.push(normal);
-  pointsArray.push(vertices[d]);
-  normalsArray.push(normal);
+function quad(a, b, c, d) {
+  faces.push([a, b, c]);
+  faces.push([a, c, d]);
 }
 
 function cube() {
@@ -120,6 +107,60 @@ function cube() {
   quad(6, 5, 1, 2);
   quad(4, 5, 6, 7);
   quad(5, 4, 0, 1);
+}
+
+function computeAveragedVertexNormals(vertices, faces) {
+  // Initialize zero normal for each vertex
+  let normals = Array(vertices.length)
+    .fill()
+    .map(() => [0, 0, 0]);
+
+  function subtract(u, v) {
+    return [u[0] - v[0], u[1] - v[1], u[2] - v[2]];
+  }
+  function cross(u, v) {
+    return [
+      u[1] * v[2] - u[2] * v[1],
+      u[2] * v[0] - u[0] * v[2],
+      u[0] * v[1] - u[1] * v[0],
+    ];
+  }
+  function normalize(u) {
+    const len = Math.sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
+    return len > 0 ? [u[0] / len, u[1] / len, u[2] / len] : [0, 0, 1];
+  }
+
+  // Accumulate face normals
+  for (let f of faces) {
+    const [a, b, c] = f;
+    const ab = subtract(vertices[b], vertices[a]);
+    const ac = subtract(vertices[c], vertices[a]);
+    const normal = normalize(cross(ab, ac));
+    for (let idx of [a, b, c]) {
+      normals[idx][0] += normal[0];
+      normals[idx][1] += normal[1];
+      normals[idx][2] += normal[2];
+    }
+  }
+
+  // Normalize the accumulated normals
+  for (let i = 0; i < normals.length; ++i) {
+    normals[i] = normalize(normals[i]);
+  }
+  return normals;
+}
+
+function buildCubeSmooth() {
+  faces = [];
+  cube(); // this will fill 'faces'
+  let averagedNormals = computeAveragedVertexNormals(vertices, faces);
+
+  for (let f of faces) {
+    for (let idx of f) {
+      pointsArray.push(vertices[idx]);
+      normalsArray.push(averagedNormals[idx]);
+    }
+  }
 }
 
 /**
@@ -637,6 +678,27 @@ function onMouseUp(event) {
   }
 }
 
+function extractMat3FromMat4(mat4) {
+  return [
+    mat4[0],
+    mat4[1],
+    mat4[2],
+    mat4[4],
+    mat4[5],
+    mat4[6],
+    mat4[8],
+    mat4[9],
+    mat4[10],
+  ];
+}
+
+function computeNormalMatrix(modelViewMatrix) {
+  const mat3x3 = extractMat3FromMat4(modelViewMatrix);
+  //const invMat3 = inverse(mat3x3);
+  // if (!invMat3) throw new Error("Normal matrix not invertible");
+  return mat3x3; //transpose(invMat3);
+}
+
 window.onload = function init() {
   canvas = document.getElementById("gl-canvas");
   gl = WebGLUtils.setupWebGL(canvas);
@@ -672,7 +734,78 @@ window.onload = function init() {
 
   colorLoc = gl.getUniformLocation(program, "uColor");
 
-  cube();
+  // Position buffer
+  const positionBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, flatten(pointsArray), gl.STATIC_DRAW);
+
+  // Normal buffer
+  const normalBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, flatten(normalsArray), gl.STATIC_DRAW);
+
+  const vPositionLoc = gl.getAttribLocation(program, "vPosition");
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  gl.vertexAttribPointer(vPositionLoc, 4, gl.FLOAT, false, 0, 0); // 4 for vec4
+  gl.enableVertexAttribArray(vPositionLoc);
+
+  // Normal attribute
+  const vNormalLoc = gl.getAttribLocation(program, "vNormal");
+  gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+  gl.vertexAttribPointer(vNormalLoc, 3, gl.FLOAT, false, 0, 0); // 3 for vec3
+  gl.enableVertexAttribArray(vNormalLoc);
+
+  var uNormalMatrix = computeNormalMatrix(modelViewMatrix);
+  if (!uNormalMatrix) {
+    throw new Error("Normal matrix computation failed!");
+  }
+
+  var uNormalMatrixLoc = gl.getUniformLocation(program, "uNormalMatrix");
+  gl.uniformMatrix3fv(uNormalMatrixLoc, false, uNormalMatrix);
+
+  var lightPosition = vec4(1.0, 10.0, 1.0, 0.0);
+
+  var lightAmbient = vec4(0.2, 0.2, 0.2, 0.1);
+  var lightDiffuse = vec4(1.0, 1.0, 0.0, 1.0);
+  var lightSpecular = vec4(0.2, 0.2, 1.0, 1.0);
+
+  var materialAmbient = vec4(1.0, 0.0, 1.0, 1.0);
+  var materialDiffuse = vec4(1.0, 0.2, 0.0, 1.0);
+  var materialSpecular = vec4(1.0, 0.2, 0.0, 1.0);
+
+  var specularAmount = 10.0;
+  gl.uniform1f(
+    gl.getUniformLocation(program, "specularAmount"),
+    specularAmount
+  );
+  var specularShininess = 100.0;
+  gl.uniform1f(
+    gl.getUniformLocation(program, "specularShininess"),
+    specularShininess
+  );
+
+  var ambientProduct = mult(lightAmbient, materialAmbient);
+  var diffuseProduct = mult(lightDiffuse, materialDiffuse);
+  var specularProduct = mult(lightSpecular, materialSpecular);
+
+  gl.uniform4fv(
+    gl.getUniformLocation(program, "ambientProduct"),
+    flatten(ambientProduct)
+  );
+  gl.uniform4fv(
+    gl.getUniformLocation(program, "diffuseProduct"),
+    flatten(diffuseProduct)
+  );
+  gl.uniform4fv(
+    gl.getUniformLocation(program, "specularProduct"),
+    flatten(specularProduct)
+  );
+  gl.uniform4fv(
+    gl.getUniformLocation(program, "lightPosition"),
+    flatten(lightPosition)
+  );
+
+  buildCubeSmooth();
   generateCylinder(cylinderArray, 0.6, 0.5, 20);
   generateCylinder(innerCylinderArray, 0.6, 0.5, 20);
   generateCylinder(treadArray, 0.6, 0.5, 20);
