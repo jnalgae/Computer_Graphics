@@ -97,7 +97,7 @@ function quad(a, b, c, d) {
   var t1 = subtract(vertices[b], vertices[a]);
   var t2 = subtract(vertices[c], vertices[b]);
   var normal = cross(t1, t2);
-  var normal = vec3(normal);
+  normal = vec3(normal);
 
   pointsArray.push(vertices[a]);
   normalsArray.push(normal);
@@ -637,29 +637,6 @@ function onMouseUp(event) {
   }
 }
 
-/*
-function extractMat3FromMat4(mat4) {
-  return [
-    mat4[0],
-    mat4[1],
-    mat4[2],
-    mat4[4],
-    mat4[5],
-    mat4[6],
-    mat4[8],
-    mat4[9],
-    mat4[10],
-  ];
-}
-
-function computeNormalMatrix(modelViewMatrix) {
-  const mat3x3 = extractMat3FromMat4(modelViewMatrix);
-  //const invMat3 = inverse(mat3x3);
-  // if (!invMat3) throw new Error("Normal matrix not invertible");
-  return mat3x3; //transpose(invMat3);
-}
-*/
-
 window.onload = function init() {
   canvas = document.getElementById("gl-canvas");
   gl = WebGLUtils.setupWebGL(canvas);
@@ -675,11 +652,24 @@ window.onload = function init() {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.enable(gl.DEPTH_TEST);
 
-  var program = initShaders(gl, "vertex-shader", "fragment-shader");
+  program = initShaders(gl, "vertex-shader", "fragment-shader");
   gl.useProgram(program);
 
-  let vBuffer = gl.createBuffer();
+  // ----
+
+  cube();
+
+  var nBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, nBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, flatten(normalsArray), gl.STATIC_DRAW);
+
+  var vNormal = gl.getAttribLocation(program, "vNormal");
+  gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(vNormal);
+
+  var vBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, flatten(pointsArray), gl.STATIC_DRAW);
 
   var vPosition = gl.getAttribLocation(program, "vPosition");
   gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
@@ -694,14 +684,6 @@ window.onload = function init() {
   gl.uniformMatrix4fv(projectionMatrixLoc, false, flatten(projectionMatrix));
 
   colorLoc = gl.getUniformLocation(program, "uColor");
-
-  //var uNormalMatrix = computeNormalMatrix(modelViewMatrix);
-  //var uNormalMatrixLoc = gl.getUniformLocation(program, "uNormalMatrix");
-  //gl.uniformMatrix3fv(uNormalMatrixLoc, false, uNormalMatrix);
-
-  var vNormal = gl.getAttribLocation(program, "vNormal");
-  gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0);
-  gl.enableVertexAttribArray(vNormal);
 
   var lightPosition = vec4(1.0, 10.0, 1.0, 0.0);
 
@@ -745,7 +727,6 @@ window.onload = function init() {
     flatten(lightPosition)
   );
 
-  cube();
   generateCylinder(cylinderArray, 0.6, 0.5, 20);
   generateCylinder(innerCylinderArray, 0.6, 0.5, 20);
   generateCylinder(treadArray, 0.6, 0.5, 20);
