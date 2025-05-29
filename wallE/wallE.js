@@ -63,7 +63,7 @@ let chargingPos = vec3(-6.3, -5.4, 0.0);
 let isDragging = false;
 let dragOffset = vec2(0, 0);
 
-let lightAmbient = vec4(0.0, 0.02, 0.58, 0.1);
+let lightAmbient = vec4(0.0, 0.02, 0.2, 0.1);
 let lightDiffuse = vec4(0.0, 0.0, 0.09, 0.2);
 let lightSpecular = vec4(1.0, 1.0, 1.0, 1.0);
 let materialAmbient, materialDiffuse, materialSpecular;
@@ -814,7 +814,7 @@ window.onload = function init() {
 
   colorLoc = gl.getUniformLocation(program, "uColor");
 
-  var lightPosition = vec4(0.0, 5.0, 10.0, 0.0);
+  var lightPosition = vec4(0.0, 7.0, 10.0, 0.0);
   gl.uniform4fv(
     gl.getUniformLocation(program, "lightPosition"),
     flatten(lightPosition)
