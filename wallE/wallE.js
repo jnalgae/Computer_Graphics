@@ -2,13 +2,20 @@
 
 let canvas, gl, program;
 let modelViewMatrix, projectionMatrix, modelViewMatrixLoc, projectionMatrixLoc;
+let nBuffer, vNormal, vBuffer, vPosition;
+
 let pointsArray = [],
-  normalsArray = [],
-  cylinderArray = [],
-  innerCylinderArray = [],
-  clawArray = [],
-  pupilArray = [],
-  treadArray = [];
+  normalsArray = [];
+let cylinderArray = [],
+  cyNormalsArray = [];
+let innerCylinderArray = [],
+  inCyNormalsArray = [];
+let clawArray = [],
+  clawNormalsArray = [];
+let treadArray = [],
+  treadNormalsArray = [];
+let pupilArray = [],
+  pupilNormalsArray = [];
 
 let torsoId = 0,
   neckId = 1,
@@ -131,7 +138,13 @@ function cube() {
  * - theta: (i / segments) * 2 * Math.PI
  *      (if i = 1, segments = 20: theta = 1/20 * 2 * PI = 18 degrees)
  */
-function generateCylinder(array, radius = 0.5, height = 1.0, segments = 20) {
+function generateCylinder(
+  array,
+  normalsArray,
+  radius = 0.5,
+  height = 1.0,
+  segments = 20
+) {
   for (let i = 0; i < segments; i++) {
     let theta = (i / segments) * 2 * Math.PI;
     let nextTheta = ((i + 1) / segments) * 2 * Math.PI;
@@ -140,26 +153,40 @@ function generateCylinder(array, radius = 0.5, height = 1.0, segments = 20) {
     let y1 = radius * Math.sin(theta);
     let x2 = radius * Math.cos(nextTheta);
     let y2 = radius * Math.sin(nextTheta);
+    let normal1 = normalize(vec3(x1, 0, y1));
+    let normal2 = normalize(vec3(x2, 0, y2));
 
     // Top face
     array.push(vec4(0, height / 2, 0, 1.0));
     array.push(vec4(x1, height / 2, y1, 1.0));
     array.push(vec4(x2, height / 2, y2, 1.0));
+    normalsArray.push(vec3(0, 1, 0));
+    normalsArray.push(vec3(0, 1, 0));
+    normalsArray.push(vec3(0, 1, 0));
 
     // Bottom face
     array.push(vec4(0, -height / 2, 0, 1.0));
     array.push(vec4(x2, -height / 2, y2, 1.0));
     array.push(vec4(x1, -height / 2, y1, 1.0));
+    normalsArray.push(vec3(0, -1, 0));
+    normalsArray.push(vec3(0, -1, 0));
+    normalsArray.push(vec3(0, -1, 0));
 
-    // Side face 1
+    // Side face 1 (normal is outwards from the axis at x1,y1)
     array.push(vec4(x1, height / 2, y1, 1.0));
     array.push(vec4(x1, -height / 2, y1, 1.0));
     array.push(vec4(x2, -height / 2, y2, 1.0));
+    normalsArray.push(normal1);
+    normalsArray.push(normal1);
+    normalsArray.push(normal2);
 
     // Side face 2
     array.push(vec4(x1, height / 2, y1, 1.0));
     array.push(vec4(x2, -height / 2, y2, 1.0));
     array.push(vec4(x2, height / 2, y2, 1.0));
+    normalsArray.push(normal1);
+    normalsArray.push(normal2);
+    normalsArray.push(normal2);
   }
 }
 
@@ -169,7 +196,7 @@ function generateCylinder(array, radius = 0.5, height = 1.0, segments = 20) {
  * - similar to generateCylinder, but instead of a full 360° sweep,
  *   it uses a 180° range of theta to create a crescent shape
  */
-function generateClaw(radius = 0.5, segments = 20, height = 0.1) {
+function generateClaw(radius, segments, height) {
   for (let i = 0; i < segments; i++) {
     let theta = (i / segments) * Math.PI; // 0 to π
     let nextTheta = ((i + 1) / segments) * Math.PI;
@@ -178,26 +205,41 @@ function generateClaw(radius = 0.5, segments = 20, height = 0.1) {
     let y1 = radius * Math.sin(theta);
     let x2 = radius * Math.cos(nextTheta);
     let y2 = radius * Math.sin(nextTheta);
+    let normal1 = normalize(vec3(x1, y1, 0));
+    let normal2 = normalize(vec3(x2, y2, 0));
+    console.log(normal1);
 
     // Top face
     clawArray.push(vec4(0, 0, height / 2, 1.0));
     clawArray.push(vec4(x1, y1, height / 2, 1.0));
     clawArray.push(vec4(x2, y2, height / 2, 1.0));
+    clawNormalsArray.push(vec3(0, 0, 1));
+    clawNormalsArray.push(vec3(0, 0, 1));
+    clawNormalsArray.push(vec3(0, 0, 1));
 
     // Bottom face
     clawArray.push(vec4(0, 0, -height / 2, 1.0));
     clawArray.push(vec4(x2, y2, -height / 2, 1.0));
     clawArray.push(vec4(x1, y1, -height / 2, 1.0));
+    clawNormalsArray.push(vec3(0, 0, -1));
+    clawNormalsArray.push(vec3(0, 0, -1));
+    clawNormalsArray.push(vec3(0, 0, -1));
 
     // Side face 1
-    clawArray.push(vec4(x1, y1, height / 2, 1.0));
-    clawArray.push(vec4(x1, y1, -height / 2, 1.0));
-    clawArray.push(vec4(x2, y2, -height / 2, 1.0));
+    clawArray.push(vec4(x1, y1, height / 2, 1.0)); // A (top)
+    clawArray.push(vec4(x2, y2, -height / 2, 1.0)); // C (bottom next)
+    clawArray.push(vec4(x1, y1, -height / 2, 1.0)); // B (bottom)
+    clawNormalsArray.push(normal1);
+    clawNormalsArray.push(normal2);
+    clawNormalsArray.push(normal1);
 
     // Side face 2
     clawArray.push(vec4(x1, y1, height / 2, 1.0));
     clawArray.push(vec4(x2, y2, -height / 2, 1.0));
     clawArray.push(vec4(x2, y2, height / 2, 1.0));
+    clawNormalsArray.push(normal1);
+    clawNormalsArray.push(normal2);
+    clawNormalsArray.push(normal2);
   }
 }
 
@@ -219,6 +261,10 @@ function generateCircle(radius = 0.5, segments = 20) {
     pupilArray.push(vec4(0, 0, 0, 1.0));
     pupilArray.push(vec4(x1, y1, 0, 1.0));
     pupilArray.push(vec4(x2, y2, 0, 1.0));
+
+    pupilNormalsArray.push(vec3(0, 0, 1));
+    pupilNormalsArray.push(vec3(0, 0, 1));
+    pupilNormalsArray.push(vec3(0, 0, 1));
   }
 }
 
@@ -227,7 +273,7 @@ function generateCircle(radius = 0.5, segments = 20) {
 // modify this to change the size of each body part
 function torso() {
   gl.uniform4fv(colorLoc, flatten(colors.torso));
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(pointsArray), gl.STATIC_DRAW);
+  setUpBuffers(normalsArray, pointsArray);
   let m = mult(modelViewMatrix, scale4(3, 3, 2));
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
   gl.drawArrays(gl.TRIANGLES, 0, pointsArray.length);
@@ -235,7 +281,7 @@ function torso() {
 
 function neck() {
   gl.uniform4fv(colorLoc, flatten(colors.neck));
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(pointsArray), gl.STATIC_DRAW);
+  setUpBuffers(normalsArray, pointsArray);
   let m = mult(modelViewMatrix, scale4(0.5, 1.3, 0.3));
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
   gl.drawArrays(gl.TRIANGLES, 0, pointsArray.length);
@@ -243,7 +289,7 @@ function neck() {
 
 function head() {
   gl.uniform4fv(colorLoc, flatten(colors.head));
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(pointsArray), gl.STATIC_DRAW);
+  setUpBuffers(normalsArray, pointsArray);
   let m = mult(modelViewMatrix, scale4(1.0, 0.4, 1.0));
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
   gl.drawArrays(gl.TRIANGLES, 0, pointsArray.length);
@@ -251,7 +297,7 @@ function head() {
 
 function eyeOuter() {
   gl.uniform4fv(colorLoc, flatten(colors.eye));
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(cylinderArray), gl.STATIC_DRAW);
+  setUpBuffers(cyNormalsArray, cylinderArray);
   let m = mult(modelViewMatrix, scale4(1.2, 1.2, 4.01));
   m = mult(m, rotateX(90));
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
@@ -260,7 +306,7 @@ function eyeOuter() {
 
 function eyeInner() {
   gl.uniform4fv(colorLoc, flatten(colors.eyeInner));
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(innerCylinderArray), gl.STATIC_DRAW);
+  setUpBuffers(inCyNormalsArray, innerCylinderArray);
   let m = mult(modelViewMatrix, scale4(1.1, 1.1, 4.0));
   m = mult(m, rotateX(90));
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
@@ -269,7 +315,7 @@ function eyeInner() {
 
 function pupil() {
   gl.uniform4fv(colorLoc, flatten(colors.eye));
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(pupilArray), gl.STATIC_DRAW);
+  setUpBuffers(pupilNormalsArray, pupilArray);
   let m = mult(modelViewMatrix, scale4(0.3, 0.3, 0.1));
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
   gl.drawArrays(gl.TRIANGLES, 0, pupilArray.length);
@@ -277,7 +323,7 @@ function pupil() {
 
 function shoulder() {
   gl.uniform4fv(colorLoc, flatten(colors.shoulder));
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(pointsArray), gl.STATIC_DRAW);
+  setUpBuffers(normalsArray, pointsArray);
   let m = mult(modelViewMatrix, scale4(0.5, 0.3, 0.3));
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
   gl.drawArrays(gl.TRIANGLES, 0, pointsArray.length);
@@ -285,7 +331,7 @@ function shoulder() {
 
 function arm() {
   gl.uniform4fv(colorLoc, flatten(colors.arm));
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(pointsArray), gl.STATIC_DRAW);
+  setUpBuffers(normalsArray, pointsArray);
   let m = mult(modelViewMatrix, scale4(0.6, 1.9, 0.3));
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
   gl.drawArrays(gl.TRIANGLES, 0, pointsArray.length);
@@ -293,7 +339,7 @@ function arm() {
 
 function wrist() {
   gl.uniform4fv(colorLoc, flatten(colors.wrist));
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(pointsArray), gl.STATIC_DRAW);
+  setUpBuffers(normalsArray, pointsArray);
   let m = mult(modelViewMatrix, scale4(0.4, 1.2, 0.2));
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
   gl.drawArrays(gl.TRIANGLES, 0, pointsArray.length);
@@ -301,7 +347,7 @@ function wrist() {
 
 function hand() {
   gl.uniform4fv(colorLoc, flatten(colors.hand));
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(pointsArray), gl.STATIC_DRAW);
+  setUpBuffers(normalsArray, pointsArray);
   let m = mult(modelViewMatrix, scale4(0.3, 0.6, 0.1));
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
   gl.drawArrays(gl.TRIANGLES, 0, pointsArray.length);
@@ -309,17 +355,36 @@ function hand() {
 
 function claw() {
   gl.uniform4fv(colorLoc, flatten(colors.claw));
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(clawArray), gl.STATIC_DRAW);
+  setUpBuffers(clawNormalsArray, clawArray);
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
   gl.drawArrays(gl.TRIANGLES, 0, clawArray.length);
 }
 
 function tread() {
   gl.uniform4fv(colorLoc, flatten(colors.tread));
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(treadArray), gl.STATIC_DRAW);
+  setUpBuffers(treadNormalsArray, treadArray);
+  // gl.bufferData(gl.ARRAY_BUFFER, flatten(treadArray), gl.STATIC_DRAW);
   let m = mult(modelViewMatrix, scale4(1.3, 1.3, 1.0));
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
   gl.drawArrays(gl.TRIANGLES, 0, treadArray.length);
+}
+
+function setUpBuffers(normalsArray, shapeArray) {
+  nBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, nBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, flatten(normalsArray), gl.STATIC_DRAW);
+
+  vNormal = gl.getAttribLocation(program, "vNormal");
+  gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(vNormal);
+
+  vBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, flatten(shapeArray), gl.STATIC_DRAW);
+
+  vPosition = gl.getAttribLocation(program, "vPosition");
+  gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(vPosition);
 }
 
 function createNode(transform, render, sibling, child) {
@@ -532,7 +597,8 @@ colors.trashCan = rgbToVec4(40, 40, 40, 0.6);
 
 function renderTrash(position) {
   gl.uniform4fv(colorLoc, flatten(colors.trash));
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(pointsArray), gl.STATIC_DRAW);
+  setUpBuffers(normalsArray, pointsArray);
+  // gl.bufferData(gl.ARRAY_BUFFER, flatten(pointsArray), gl.STATIC_DRAW);
   let m = mult(
     modelViewMatrix,
     translate(position[0], position[1], position[2])
@@ -544,7 +610,8 @@ function renderTrash(position) {
 
 function renderTrashCan(position) {
   gl.uniform4fv(colorLoc, flatten(colors.trashCan));
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(cylinderArray), gl.STATIC_DRAW);
+  setUpBuffers(cyNormalsArray, cylinderArray);
+  // gl.bufferData(gl.ARRAY_BUFFER, flatten(cylinderArray), gl.STATIC_DRAW);
   let m = mult(
     modelViewMatrix,
     translate(position[0], position[1], position[2])
@@ -559,7 +626,8 @@ colors.chargingStation = rgbToVec4(76, 216, 21);
 
 function renderChargingStation(position) {
   gl.uniform4fv(colorLoc, flatten(colors.chargingStation));
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(cylinderArray), gl.STATIC_DRAW);
+  setUpBuffers(cyNormalsArray, cylinderArray);
+  // gl.bufferData(gl.ARRAY_BUFFER, flatten(cylinderArray), gl.STATIC_DRAW);
   let m = mult(
     modelViewMatrix,
     translate(position[0], position[1], position[2])
@@ -657,24 +725,6 @@ window.onload = function init() {
 
   // ----
 
-  cube();
-
-  var nBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, nBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(normalsArray), gl.STATIC_DRAW);
-
-  var vNormal = gl.getAttribLocation(program, "vNormal");
-  gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0);
-  gl.enableVertexAttribArray(vNormal);
-
-  var vBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(pointsArray), gl.STATIC_DRAW);
-
-  var vPosition = gl.getAttribLocation(program, "vPosition");
-  gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
-  gl.enableVertexAttribArray(vPosition);
-
   modelViewMatrix = mat4();
   modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix");
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
@@ -727,9 +777,10 @@ window.onload = function init() {
     flatten(lightPosition)
   );
 
-  generateCylinder(cylinderArray, 0.6, 0.5, 20);
-  generateCylinder(innerCylinderArray, 0.6, 0.5, 20);
-  generateCylinder(treadArray, 0.6, 0.5, 20);
+  cube();
+  generateCylinder(cylinderArray, cyNormalsArray, 0.6, 0.5, 20);
+  generateCylinder(innerCylinderArray, inCyNormalsArray, 0.6, 0.5, 20);
+  generateCylinder(treadArray, treadNormalsArray, 0.6, 0.5, 20);
   generateClaw(0.3, 20, 0.1);
   generateCircle(1.0, 20);
 
