@@ -55,7 +55,6 @@ let fovy = 45,
   far = 1000;
 
 let colorLoc;
-
 let batteryLowColor = false;
 
 let trashPosition = vec3(7.0, 4.0, 0.0); // the first position of trash
@@ -63,6 +62,12 @@ let trashCanPosition = vec3(6.2, -5.6, 0.0); // the first position of trash can
 let chargingPos = vec3(-6.3, -5.4, 0.0);
 let isDragging = false;
 let dragOffset = vec2(0, 0);
+
+let lightAmbient = vec4(0.0, 0.02, 0.58, 0.1);
+let lightDiffuse = vec4(0.0, 0.0, 0.09, 0.2);
+let lightSpecular = vec4(1.0, 1.0, 1.0, 1.0);
+let materialAmbient, materialDiffuse, materialSpecular;
+let ambientProduct, diffuseProduct, specularProduct;
 
 function rgbToVec4(r, g, b, a = 1.0) {
   return vec4(r / 255, g / 255, b / 255, a);
@@ -82,6 +87,7 @@ let colors = {
   hand: rgbToVec4(117, 117, 116),
   claw: rgbToVec4(102, 102, 102),
   tread: rgbToVec4(102, 102, 102),
+  ground: rgbToVec4(255, 251, 251),
 };
 
 // ** Geometry Generation Part ** //
@@ -207,7 +213,6 @@ function generateClaw(radius, segments, height) {
     let y2 = radius * Math.sin(nextTheta);
     let normal1 = normalize(vec3(x1, y1, 0));
     let normal2 = normalize(vec3(x2, y2, 0));
-    console.log(normal1);
 
     // Top face
     clawArray.push(vec4(0, 0, height / 2, 1.0));
@@ -274,6 +279,11 @@ function generateCircle(radius = 0.5, segments = 20) {
 function torso() {
   gl.uniform4fv(colorLoc, flatten(colors.torso));
   setUpBuffers(normalsArray, pointsArray);
+  setUpLights(
+    (materialAmbient = vec4(0.0, 0.03, 0.4, 0.0)),
+    (materialDiffuse = vec4(0.0, 0.02, 0.58, 0.0)),
+    (materialSpecular = vec4(1.0, 1.0, 1.0, 1.0))
+  );
   let m = mult(modelViewMatrix, scale4(3, 3, 2));
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
   gl.drawArrays(gl.TRIANGLES, 0, pointsArray.length);
@@ -363,7 +373,6 @@ function claw() {
 function tread() {
   gl.uniform4fv(colorLoc, flatten(colors.tread));
   setUpBuffers(treadNormalsArray, treadArray);
-  // gl.bufferData(gl.ARRAY_BUFFER, flatten(treadArray), gl.STATIC_DRAW);
   let m = mult(modelViewMatrix, scale4(1.3, 1.3, 1.0));
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
   gl.drawArrays(gl.TRIANGLES, 0, treadArray.length);
@@ -437,7 +446,7 @@ function initNodes(id) {
       break;
 
     case eyeLeftPupilId:
-      m = translate(0, 0, 1.1);
+      m = translate(0, 0, 1.01);
       figure[eyeLeftPupilId] = createNode(m, pupil, null, null);
       break;
 
@@ -452,7 +461,7 @@ function initNodes(id) {
       break;
 
     case eyeRightPupilId:
-      m = translate(0, 0, 1.1);
+      m = translate(0, 0, 1.01);
       figure[eyeRightPupilId] = createNode(m, pupil, null, null);
       break;
 
@@ -598,7 +607,12 @@ colors.trashCan = rgbToVec4(40, 40, 40, 0.6);
 function renderTrash(position) {
   gl.uniform4fv(colorLoc, flatten(colors.trash));
   setUpBuffers(normalsArray, pointsArray);
-  // gl.bufferData(gl.ARRAY_BUFFER, flatten(pointsArray), gl.STATIC_DRAW);
+  setUpLights(
+    (materialAmbient = vec4(0.2, 0.2, 0.0, 0.9)),
+    (materialDiffuse = vec4(1.0, 1.0, 1.0, 0.0)),
+    (materialSpecular = vec4(1.0, 1.0, 1.0, 1.0))
+  );
+
   let m = mult(
     modelViewMatrix,
     translate(position[0], position[1], position[2])
@@ -611,12 +625,17 @@ function renderTrash(position) {
 function renderTrashCan(position) {
   gl.uniform4fv(colorLoc, flatten(colors.trashCan));
   setUpBuffers(cyNormalsArray, cylinderArray);
-  // gl.bufferData(gl.ARRAY_BUFFER, flatten(cylinderArray), gl.STATIC_DRAW);
+  setUpLights(
+    (materialAmbient = vec4(0.2, 0.2, 0.2, 0.9)),
+    (materialDiffuse = vec4(1.0, 1.0, 1.0, 0.0)),
+    (materialSpecular = vec4(1.0, 1.0, 1.0, 1.0))
+  );
+
   let m = mult(
     modelViewMatrix,
     translate(position[0], position[1], position[2])
   );
-  m = mult(m, scale4(1.2, 1.0, 0.4));
+  m = mult(m, scale4(1.2, 5, 2.4));
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
   gl.drawArrays(gl.TRIANGLES, 0, cylinderArray.length);
 }
@@ -627,12 +646,42 @@ colors.chargingStation = rgbToVec4(76, 216, 21);
 function renderChargingStation(position) {
   gl.uniform4fv(colorLoc, flatten(colors.chargingStation));
   setUpBuffers(cyNormalsArray, cylinderArray);
-  // gl.bufferData(gl.ARRAY_BUFFER, flatten(cylinderArray), gl.STATIC_DRAW);
+  setUpLights(
+    (materialAmbient = vec4(0.2, 0.2, 0.5, 0.9)),
+    (materialDiffuse = vec4(0.2, 0.2, 0.2, 0.1)),
+    (materialSpecular = vec4(1.0, 1.0, 1.0, 1.0))
+  );
+
   let m = mult(
     modelViewMatrix,
     translate(position[0], position[1], position[2])
   );
-  m = mult(m, scale4(2.0, 0.5, 0.4));
+  m = mult(m, scale4(2.0, 0.5, 3.0));
+  gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
+  gl.drawArrays(gl.TRIANGLES, 0, cylinderArray.length);
+}
+
+function renderGround(position) {
+  gl.uniform4fv(colorLoc, flatten(colors.ground));
+  setUpBuffers(cyNormalsArray, cylinderArray);
+  setUpLights(
+    (materialAmbient = vec4(1.2, 0.0, 0.0, 1.0)),
+    (materialDiffuse = vec4(1.2, 0.0, 0.0, 1.1)),
+    (materialSpecular = vec4(1.0, 1.0, 1.0, 0.5))
+  );
+
+  /*
+  let m = mult(
+    modelViewMatrix,
+    mult(translate(0, -5.87, 0), scale4(200.0, 1.0, 200.0))
+  );
+  */
+  let m = mult(
+    modelViewMatrix,
+    translate(position[0], position[1], position[2])
+  );
+  m = mult(m, scale4(70.0, 0.2, 70.0));
+
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
   gl.drawArrays(gl.TRIANGLES, 0, cylinderArray.length);
 }
@@ -705,6 +754,36 @@ function onMouseUp(event) {
   }
 }
 
+function setUpLights(materialAmbient, materialDiffuse, materialSpecular) {
+  var specularAmount = 10.0;
+  gl.uniform1f(
+    gl.getUniformLocation(program, "specularAmount"),
+    specularAmount
+  );
+  var specularShininess = 100.0;
+  gl.uniform1f(
+    gl.getUniformLocation(program, "specularShininess"),
+    specularShininess
+  );
+
+  ambientProduct = mult(lightAmbient, materialAmbient);
+  diffuseProduct = mult(lightDiffuse, materialDiffuse);
+  specularProduct = mult(lightSpecular, materialSpecular);
+
+  gl.uniform4fv(
+    gl.getUniformLocation(program, "ambientProduct"),
+    flatten(ambientProduct)
+  );
+  gl.uniform4fv(
+    gl.getUniformLocation(program, "diffuseProduct"),
+    flatten(diffuseProduct)
+  );
+  gl.uniform4fv(
+    gl.getUniformLocation(program, "specularProduct"),
+    flatten(specularProduct)
+  );
+}
+
 window.onload = function init() {
   canvas = document.getElementById("gl-canvas");
   gl = WebGLUtils.setupWebGL(canvas);
@@ -735,43 +814,7 @@ window.onload = function init() {
 
   colorLoc = gl.getUniformLocation(program, "uColor");
 
-  var lightPosition = vec4(1.0, 10.0, 1.0, 0.0);
-
-  var lightAmbient = vec4(0.2, 0.2, 0.2, 0.1);
-  var lightDiffuse = vec4(1.0, 1.0, 0.0, 1.0);
-  var lightSpecular = vec4(0.2, 0.2, 1.0, 1.0);
-
-  var materialAmbient = vec4(1.0, 0.0, 1.0, 1.0);
-  var materialDiffuse = vec4(1.0, 0.2, 0.0, 1.0);
-  var materialSpecular = vec4(1.0, 0.2, 0.0, 1.0);
-
-  var specularAmount = 10.0;
-  gl.uniform1f(
-    gl.getUniformLocation(program, "specularAmount"),
-    specularAmount
-  );
-  var specularShininess = 100.0;
-  gl.uniform1f(
-    gl.getUniformLocation(program, "specularShininess"),
-    specularShininess
-  );
-
-  var ambientProduct = mult(lightAmbient, materialAmbient);
-  var diffuseProduct = mult(lightDiffuse, materialDiffuse);
-  var specularProduct = mult(lightSpecular, materialSpecular);
-
-  gl.uniform4fv(
-    gl.getUniformLocation(program, "ambientProduct"),
-    flatten(ambientProduct)
-  );
-  gl.uniform4fv(
-    gl.getUniformLocation(program, "diffuseProduct"),
-    flatten(diffuseProduct)
-  );
-  gl.uniform4fv(
-    gl.getUniformLocation(program, "specularProduct"),
-    flatten(specularProduct)
-  );
+  var lightPosition = vec4(0.0, 5.0, 10.0, 0.0);
   gl.uniform4fv(
     gl.getUniformLocation(program, "lightPosition"),
     flatten(lightPosition)
@@ -874,7 +917,7 @@ function renderChargingGaugeBars() {
 
 function renderChargingBar(position) {
   gl.uniform4fv(colorLoc, flatten(rgbToVec4(76, 216, 21)));
-  gl.bufferData(gl.ARRAY_BUFFER, flatten(pointsArray), gl.STATIC_DRAW);
+  setUpBuffers(normalsArray, pointsArray);
   let m = mult(
     modelViewMatrix,
     translate(position[0], position[1], position[2])
@@ -897,6 +940,8 @@ function render() {
 
   for (let i = 0; i < numNodes; i++) initNodes(i);
   traverse(torsoId);
+
+  // --------------------
 
   // if wall E is grabbing or holding trash, make the trash follow the claw position
   if (isGrabbingTrash || isHoldingTrash) {
@@ -935,6 +980,7 @@ function render() {
   renderTrash(trashPosition);
   renderTrashCan(trashCanPosition);
   renderChargingStation(chargingPos);
+  renderGround(chargingPos);
 
   const trashLanded =
     !isDraggingTrash &&
