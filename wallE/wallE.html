@@ -28,26 +28,10 @@
       uniform mat4 projectionMatrix;
       uniform mat3 uNormalMatrix;
 
-      varying vec3 position; 
-      varying vec3 normal;
-
-      void main() {
-          position = (modelViewMatrix * vPosition).xyz;
-          vec4 NN = vec4(vNormal, 0);
-
-          normal = normalize((uNormalMatrix * vNormal).xyz);
-         // normal = normalize((modelViewMatrix*NN).xyz);
-
-          gl_Position = projectionMatrix * modelViewMatrix * vPosition;
-      }
-    </script>
-
-    <script id="fragment-shader" type="x-shader/x-fragment">
-      precision mediump float;
-
       // model color
       uniform vec4 uColor;
 
+      // specular properties
       uniform vec4 specularColor;
       uniform float specularAmount;
       uniform float specularShininess;
@@ -58,10 +42,16 @@
       // light position
       uniform vec4 lightPosition;
 
-      varying vec3 position;
-      varying vec3 normal;
+      // color passed down to fragment shader
+      varying vec4 fColor;
 
       void main() {
+          vec3 position = (modelViewMatrix * vPosition).xyz;
+          vec4 NN = vec4(vNormal, 0);
+
+          // normal = normalize(uNormalMatrix * vNormal);
+          vec3 normal = normalize((modelViewMatrix*NN).xyz);
+
           // fixed light position
           vec3 light = lightPosition.xyz;
 
@@ -88,13 +78,26 @@
             specular = vec4(0.0, 0.0, 0.0, 1.0);
           }
 
-          gl_FragColor = ambient + diffuse + specular;        
+          fColor = ambient + diffuse + specular;
+
+          gl_Position = projectionMatrix * modelViewMatrix * vPosition;
+      }
+    </script>
+
+    <script id="fragment-shader" type="x-shader/x-fragment">
+      precision mediump float;
+
+      varying vec4 fColor;
+
+      void main() {
+          gl_FragColor = fColor;        
       }
     </script>
 
     <script type="text/javascript" src="../Common/webgl-utils.js"></script>
     <script type="text/javascript" src="../Common/initShaders.js"></script>
     <script type="text/javascript" src="../Common/MV.js"></script>
+    <script type="text/javascript" src="cubeFaces8.js"></script>
     <script type="text/javascript" src="wallE.js"></script>
   </head>
 
