@@ -22,27 +22,46 @@
 
     <script id="vertex-shader" type="x-shader/x-vertex">
       attribute vec4 vPosition;
+      attribute vec2 vTexCoord;
+      varying vec2 fTexCoord;
       uniform mat4 modelViewMatrix;
       uniform mat4 projectionMatrix;
+      uniform bool useTexture;
+
+      uniform vec4 lightPosition;
+      uniform vec4 ambientProduct, diffuseProduct, specularProduct;
+      uniform float shininess;
+
       void main() {
           gl_Position = projectionMatrix * modelViewMatrix * vPosition;
+          fTexCoord = useTexture ? vTexCoord : vec2(0.0, 0.0);
       }
     </script>
 
     <script id="fragment-shader" type="x-shader/x-fragment">
-      precision mediump float;
+        precision mediump float;
 
-      uniform vec4 uColor;
+        uniform vec4 uColor;
+        uniform sampler2D uTexture;
+        uniform bool useTexture;
 
-      void main() {
-          gl_FragColor = uColor;
+        varying vec2 fTexCoord;
+
+        void main() {
+
+        if (useTexture) {
+            gl_FragColor = texture2D(uTexture, fTexCoord) * uColor;
+
+        } else {
+            gl_FragColor = uColor;
+        }
       }
     </script>
 
     <script type="text/javascript" src="../Common/webgl-utils.js"></script>
     <script type="text/javascript" src="../Common/initShaders.js"></script>
     <script type="text/javascript" src="../Common/MV.js"></script>
-    <script type="text/javascript" src="wallE.js"></script>
+    <script type="text/javascript" src="d.js"></script>
   </head>
 
   <body>
@@ -69,6 +88,8 @@
       <label>up Z:</label>
       <input type="range" id="upZ" min="-1" max="1" step="0.05" value="0" />
     </div>
+
+    <img id="textureImage" src="rusty_metal.jpg" style="display: none" />
 
     <canvas id="gl-canvas" width="1600" height="800">
       Oops ... your browser doesn't support the HTML5 canvas element.
