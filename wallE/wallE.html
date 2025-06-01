@@ -22,8 +22,12 @@
 
     <script id="vertex-shader" type="x-shader/x-vertex">
       attribute vec4 vPosition;
+      attribute vec3 vNormal;
       attribute vec2 vTexCoord;
+
+      varying vec4 fColor;
       varying vec2 fTexCoord;
+
       uniform mat4 modelViewMatrix;
       uniform mat4 projectionMatrix;
       uniform bool useTexture;
@@ -33,27 +37,51 @@
       uniform float shininess;
 
       void main() {
-          gl_Position = projectionMatrix * modelViewMatrix * vPosition;
-          fTexCoord = useTexture ? vTexCoord : vec2(0.0, 0.0);
+        vec3 pos = (modelViewMatrix * vPosition).xyz;
+
+        vec3 L = normalize(lightPosition.xyz - pos);
+        vec3 E = normalize(-pos);
+        vec3 H = normalize(L + E);
+
+        vec3 N = normalize((modelViewMatrix * vec4(vNormal, 0.0)).xyz);
+
+        vec4 ambient = ambientProduct;
+        float d = max(dot(L, N), 0.0);
+        vec4 diffuse = d * diffuseProduct;
+
+        float s = pow(max(dot(N, H), 0.0), shininess);
+        vec4 specular = s * specularProduct;
+
+        if (dot(L, N) < 0.0) {
+          specular = vec4(0.0);
+        }
+
+        fColor = ambient + diffuse + specular;
+        fColor.a = 1.0;
+
+        gl_Position = projectionMatrix * modelViewMatrix * vPosition;
+        fTexCoord = useTexture ? vTexCoord : vec2(0.0, 0.0);
       }
     </script>
 
     <script id="fragment-shader" type="x-shader/x-fragment">
         precision mediump float;
 
-        uniform vec4 uColor;
         uniform sampler2D uTexture;
         uniform bool useTexture;
-
+        uniform sampler2D uBgTexture;
         varying vec2 fTexCoord;
+        varying vec4 fColor;
+        uniform vec4 uColor;
+        uniform int textureType;
 
         void main() {
-
-        if (useTexture) {
-            gl_FragColor = texture2D(uTexture, fTexCoord) * uColor;
-
+        if (textureType == 1) {
+          gl_FragColor = texture2D(uTexture, fTexCoord) * fColor;
+        } else if (textureType == 2) {
+          gl_FragColor = texture2D(uBgTexture, fTexCoord);
         } else {
-            gl_FragColor = uColor;
+          gl_FragColor = uColor;
         }
       }
     </script>
@@ -61,7 +89,7 @@
     <script type="text/javascript" src="../Common/webgl-utils.js"></script>
     <script type="text/javascript" src="../Common/initShaders.js"></script>
     <script type="text/javascript" src="../Common/MV.js"></script>
-    <script type="text/javascript" src="d.js"></script>
+    <script type="text/javascript" src="wallE.js"></script>
   </head>
 
   <body>
@@ -90,6 +118,7 @@
     </div>
 
     <img id="textureImage" src="rusty_metal.jpg" style="display: none" />
+    <img id="bgTextureImage" src="bg.jpg" style="display: none" />
 
     <canvas id="gl-canvas" width="1600" height="800">
       Oops ... your browser doesn't support the HTML5 canvas element.

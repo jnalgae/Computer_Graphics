@@ -96,8 +96,7 @@ let vertices = [
 function quad(a, b, c, d) {
   var t1 = subtract(vertices[b], vertices[a]);
   var t2 = subtract(vertices[c], vertices[b]);
-  var normal = cross(t1, t2);
-  var normal = vec3(normal);
+  var normal = normalize(cross(t1, t2));
 
   pointsArray.push(vertices[a]);
   normalsArray.push(normal);
@@ -115,6 +114,7 @@ function quad(a, b, c, d) {
 
 function generatecube() {
   pointsArray = [];
+  normalsArray = [];
   quad(1, 0, 3, 2);
   quad(2, 3, 7, 6);
   quad(3, 0, 4, 7);
@@ -128,14 +128,14 @@ var colorsArray = [];
 
 var texCoord = [vec2(0, 0), vec2(0, 1), vec2(1, 1), vec2(1, 0)];
 var vertexColors = [
-  vec4(1.0, 0.0, 0.0, 1.0), // 빨강
-  vec4(0.0, 1.0, 0.0, 1.0), // 초록
-  vec4(0.0, 0.0, 1.0, 1.0), // 파랑
-  vec4(1.0, 1.0, 0.0, 1.0), // 노랑
-  vec4(1.0, 0.0, 1.0, 1.0), // 자홍
-  vec4(0.0, 1.0, 1.0, 1.0), // 청록
-  vec4(0.5, 0.5, 0.5, 1.0), // 회색
-  vec4(1.0, 1.0, 1.0, 1.0), // 흰색
+  vec4(1.0, 0.0, 0.0, 1.0),
+  vec4(0.0, 1.0, 0.0, 1.0),
+  vec4(0.0, 0.0, 1.0, 1.0),
+  vec4(1.0, 1.0, 0.0, 1.0),
+  vec4(1.0, 0.0, 1.0, 1.0),
+  vec4(0.0, 1.0, 1.0, 1.0),
+  vec4(0.5, 0.5, 0.5, 1.0),
+  vec4(1.0, 1.0, 1.0, 1.0),
 ];
 
 function texQuad(a, b, c, d) {
@@ -167,26 +167,32 @@ function texQuad(a, b, c, d) {
 let texturedCubePoints = [],
   texturedCubeTexCoords = [];
 
+let texturedCubeNormalsArray = [];
+
 function generateTexturedCube() {
   texturedCubePoints = [];
   texturedCubeTexCoords = [];
+  texturedCubeNormalsArray = [];
 
   function texQuad(a, b, c, d) {
+    let t1 = subtract(vertices[b], vertices[a]);
+    let t2 = subtract(vertices[c], vertices[b]);
+    let normal = normalize(cross(t1, t2));
+
+    for (let i = 0; i < 6; i++) {
+      texturedCubeNormalsArray.push(normal);
+    }
+
     texturedCubePoints.push(vertices[a]);
     texturedCubeTexCoords.push(texCoord[0]);
-
     texturedCubePoints.push(vertices[b]);
     texturedCubeTexCoords.push(texCoord[1]);
-
     texturedCubePoints.push(vertices[c]);
     texturedCubeTexCoords.push(texCoord[2]);
-
     texturedCubePoints.push(vertices[a]);
     texturedCubeTexCoords.push(texCoord[0]);
-
     texturedCubePoints.push(vertices[c]);
     texturedCubeTexCoords.push(texCoord[2]);
-
     texturedCubePoints.push(vertices[d]);
     texturedCubeTexCoords.push(texCoord[3]);
   }
@@ -198,6 +204,7 @@ function generateTexturedCube() {
   texQuad(4, 5, 6, 7);
   texQuad(5, 4, 0, 1);
 }
+
 /**
  * Define a cylinder
  * it will be used to construct outer eyes, inner eyes, treads
@@ -207,35 +214,86 @@ function generateTexturedCube() {
  * - theta: (i / segments) * 2 * Math.PI
  *      (if i = 1, segments = 20: theta = 1/20 * 2 * PI = 18 degrees)
  */
-function generateCylinder(array, radius = 0.5, height = 1.0, segments = 20) {
-  for (let i = 0; i < segments; i++) {
-    let theta = (i / segments) * 2 * Math.PI;
-    let nextTheta = ((i + 1) / segments) * 2 * Math.PI;
+let cylinderNormals = [],
+  cylinderTexCoords = [];
+let innerCylinderNormals = [],
+  innerCylinderTexCoords = [];
+let treadNormals = [],
+  treadTexCoords = [];
 
-    let x1 = radius * Math.cos(theta);
-    let y1 = radius * Math.sin(theta);
-    let x2 = radius * Math.cos(nextTheta);
-    let y2 = radius * Math.sin(nextTheta);
+function generateCylinder(
+  targetArray,
+  normalArray,
+  texCoordArray,
+  radius = 0.5,
+  height = 1.0,
+  segments = 20
+) {
+  for (let i = 0; i < segments; i++) {
+    const theta = (i / segments) * 2 * Math.PI;
+    const nextTheta = ((i + 1) / segments) * 2 * Math.PI;
+
+    const x1 = radius * Math.cos(theta);
+    const z1 = radius * Math.sin(theta);
+    const x2 = radius * Math.cos(nextTheta);
+    const z2 = radius * Math.sin(nextTheta);
 
     // Top face
-    array.push(vec4(0, height / 2, 0, 1.0));
-    array.push(vec4(x1, height / 2, y1, 1.0));
-    array.push(vec4(x2, height / 2, y2, 1.0));
+    const topNormal = vec3(0, 1, 0);
+    targetArray.push(vec4(0, height / 2, 0, 1.0));
+    texCoordArray.push(vec2(0.5, 0.5));
+    normalArray.push(topNormal);
+
+    targetArray.push(vec4(x1, height / 2, z1, 1.0));
+    texCoordArray.push(vec2(0.5 + x1 / radius / 2, 0.5 + z1 / radius / 2));
+    normalArray.push(topNormal);
+
+    targetArray.push(vec4(x2, height / 2, z2, 1.0));
+    texCoordArray.push(vec2(0.5 + x2 / radius / 2, 0.5 + z2 / radius / 2));
+    normalArray.push(topNormal);
 
     // Bottom face
-    array.push(vec4(0, -height / 2, 0, 1.0));
-    array.push(vec4(x2, -height / 2, y2, 1.0));
-    array.push(vec4(x1, -height / 2, y1, 1.0));
+    const bottomNormal = vec3(0, -1, 0);
+    targetArray.push(vec4(0, -height / 2, 0, 1.0));
+    texCoordArray.push(vec2(0.5, 0.5));
+    normalArray.push(bottomNormal);
 
-    // Side face 1
-    array.push(vec4(x1, height / 2, y1, 1.0));
-    array.push(vec4(x1, -height / 2, y1, 1.0));
-    array.push(vec4(x2, -height / 2, y2, 1.0));
+    targetArray.push(vec4(x2, -height / 2, z2, 1.0));
+    texCoordArray.push(vec2(0.5 + x2 / radius / 2, 0.5 + z2 / radius / 2));
+    normalArray.push(bottomNormal);
 
-    // Side face 2
-    array.push(vec4(x1, height / 2, y1, 1.0));
-    array.push(vec4(x2, -height / 2, y2, 1.0));
-    array.push(vec4(x2, height / 2, y2, 1.0));
+    targetArray.push(vec4(x1, -height / 2, z1, 1.0));
+    texCoordArray.push(vec2(0.5 + x1 / radius / 2, 0.5 + z1 / radius / 2));
+    normalArray.push(bottomNormal);
+
+    // Side face - triangle 1
+    const n1 = normalize(vec3(x1, 0, z1));
+    const n2 = normalize(vec3(x2, 0, z2));
+
+    targetArray.push(vec4(x1, height / 2, z1, 1.0));
+    texCoordArray.push(vec2(i / segments, 1.0));
+    normalArray.push(n1);
+
+    targetArray.push(vec4(x1, -height / 2, z1, 1.0));
+    texCoordArray.push(vec2(i / segments, 0.0));
+    normalArray.push(n1);
+
+    targetArray.push(vec4(x2, -height / 2, z2, 1.0));
+    texCoordArray.push(vec2((i + 1) / segments, 0.0));
+    normalArray.push(n2);
+
+    // Side face - triangle 2
+    targetArray.push(vec4(x1, height / 2, z1, 1.0));
+    texCoordArray.push(vec2(i / segments, 1.0));
+    normalArray.push(n1);
+
+    targetArray.push(vec4(x2, -height / 2, z2, 1.0));
+    texCoordArray.push(vec2((i + 1) / segments, 0.0));
+    normalArray.push(n2);
+
+    targetArray.push(vec4(x2, height / 2, z2, 1.0));
+    texCoordArray.push(vec2((i + 1) / segments, 1.0));
+    normalArray.push(n2);
   }
 }
 
@@ -301,38 +359,76 @@ function generateCircle(radius = 0.5, segments = 20) {
 // ** Geometry Generation Part ** //
 // define the rendering logic for each individual body part
 // modify this to change the size of each body part
+
 function torso() {
-  gl.uniform1i(useTextureLoc, true);
-  gl.uniform4fv(colorLoc, flatten(colors.torso));
+  gl.uniform1i(textureTypeLoc, 1);
+  let instanceMatrix = mult(translate(0.0, 0.0, 0.0), scale4(3, 3, 2));
+  let mvMatrix = mult(modelViewMatrix, instanceMatrix);
+  gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(mvMatrix));
 
   gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, flatten(texturedCubePoints), gl.STATIC_DRAW);
   gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
   gl.enableVertexAttribArray(vPosition);
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, tBuffer);
+  if (batteryLowColor) {
+    gl.uniform1i(textureTypeLoc, 0);
+    gl.uniform1i(useTextureLoc, false);
+    gl.disableVertexAttribArray(vTexCoord);
+    gl.uniform4fv(colorLoc, flatten(vec4(0.3, 0.3, 0.3, 1.0)));
+  } else {
+    gl.uniform1i(textureTypeLoc, 1);
+    gl.uniform1i(useTextureLoc, true);
+    gl.uniform4fv(colorLoc, flatten(colors.torso));
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, tBuffer);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      flatten(texturedCubeTexCoords),
+      gl.STATIC_DRAW
+    );
+    gl.vertexAttribPointer(vTexCoord, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vTexCoord);
+  }
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, nBuffer);
   gl.bufferData(
     gl.ARRAY_BUFFER,
-    flatten(texturedCubeTexCoords),
+    flatten(texturedCubeNormalsArray),
     gl.STATIC_DRAW
   );
-  gl.vertexAttribPointer(vTexCoord, 2, gl.FLOAT, false, 0, 0);
-  gl.enableVertexAttribArray(vTexCoord);
+  gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(vNormal);
 
-  let m = mult(modelViewMatrix, scale4(3, 3, 2));
-  gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
   gl.drawArrays(gl.TRIANGLES, 0, texturedCubePoints.length);
 }
 
 function neck() {
+  gl.uniform1i(textureTypeLoc, 0);
   gl.uniform1i(useTextureLoc, true);
   gl.uniform4fv(colorLoc, flatten(colors.neck));
-
   gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, flatten(texturedCubePoints), gl.STATIC_DRAW);
   gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
   gl.enableVertexAttribArray(vPosition);
 
+  if (batteryLowColor) {
+    gl.uniform1i(useTextureLoc, false);
+    gl.disableVertexAttribArray(vTexCoord);
+    gl.uniform4fv(colorLoc, flatten(vec4(0.3, 0.3, 0.3, 1.0)));
+  } else {
+    gl.uniform1i(useTextureLoc, true);
+    gl.uniform4fv(colorLoc, flatten(colors.torso));
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, tBuffer);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      flatten(texturedCubeTexCoords),
+      gl.STATIC_DRAW
+    );
+    gl.vertexAttribPointer(vTexCoord, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vTexCoord);
+  }
   gl.bindBuffer(gl.ARRAY_BUFFER, tBuffer);
   gl.bufferData(
     gl.ARRAY_BUFFER,
@@ -341,13 +437,13 @@ function neck() {
   );
   gl.vertexAttribPointer(vTexCoord, 2, gl.FLOAT, false, 0, 0);
   gl.enableVertexAttribArray(vTexCoord);
-
   let m = mult(modelViewMatrix, scale4(0.5, 1.3, 0.3));
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
   gl.drawArrays(gl.TRIANGLES, 0, texturedCubePoints.length);
 }
 
 function head() {
+  gl.uniform1i(textureTypeLoc, 0);
   gl.disableVertexAttribArray(vTexCoord);
   gl.uniform1i(useTextureLoc, false);
   gl.uniform1i(gl.getUniformLocation(program, "useTexture"), false);
@@ -360,6 +456,7 @@ function head() {
 }
 
 function eyeOuter() {
+  gl.uniform1i(textureTypeLoc, 0);
   gl.disableVertexAttribArray(vTexCoord);
   gl.uniform1i(useTextureLoc, false);
   gl.uniform1i(gl.getUniformLocation(program, "useTexture"), false);
@@ -373,6 +470,7 @@ function eyeOuter() {
 }
 
 function eyeInner() {
+  gl.uniform1i(textureTypeLoc, 0);
   gl.uniform1i(useTextureLoc, false);
   gl.disableVertexAttribArray(vTexCoord);
   gl.uniform1i(gl.getUniformLocation(program, "useTexture"), false);
@@ -386,6 +484,7 @@ function eyeInner() {
 }
 
 function pupil() {
+  gl.uniform1i(textureTypeLoc, 0);
   gl.uniform1i(useTextureLoc, false);
   gl.disableVertexAttribArray(vTexCoord);
   gl.uniform1i(gl.getUniformLocation(program, "useTexture"), false);
@@ -398,6 +497,7 @@ function pupil() {
 }
 
 function shoulder() {
+  gl.uniform1i(textureTypeLoc, 0);
   gl.uniform1i(useTextureLoc, false);
   gl.disableVertexAttribArray(vTexCoord);
   gl.uniform1i(gl.getUniformLocation(program, "useTexture"), false);
@@ -410,14 +510,34 @@ function shoulder() {
 }
 
 function arm() {
+  gl.uniform1i(textureTypeLoc, 1);
   gl.uniform1i(useTextureLoc, true);
   gl.uniform4fv(colorLoc, flatten(colors.arm));
-
+  const mvMatrix = mult(modelViewMatrix, scale4(0.6, 1.9, 0.3));
+  gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(mvMatrix));
   gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, flatten(texturedCubePoints), gl.STATIC_DRAW);
   gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
   gl.enableVertexAttribArray(vPosition);
+  if (batteryLowColor) {
+    gl.uniform1i(textureTypeLoc, 0);
+    gl.uniform1i(useTextureLoc, false);
+    gl.disableVertexAttribArray(vTexCoord);
+    gl.uniform4fv(colorLoc, flatten(vec4(0.3, 0.3, 0.3, 1.0)));
+  } else {
+    gl.uniform1i(textureTypeLoc, 1);
+    gl.uniform1i(useTextureLoc, true);
+    gl.uniform4fv(colorLoc, flatten(colors.torso));
 
+    gl.bindBuffer(gl.ARRAY_BUFFER, tBuffer);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      flatten(texturedCubeTexCoords),
+      gl.STATIC_DRAW
+    );
+    gl.vertexAttribPointer(vTexCoord, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vTexCoord);
+  }
   gl.bindBuffer(gl.ARRAY_BUFFER, tBuffer);
   gl.bufferData(
     gl.ARRAY_BUFFER,
@@ -426,13 +546,19 @@ function arm() {
   );
   gl.vertexAttribPointer(vTexCoord, 2, gl.FLOAT, false, 0, 0);
   gl.enableVertexAttribArray(vTexCoord);
-
-  let m = mult(modelViewMatrix, scale4(0.6, 1.9, 0.3));
-  gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
+  gl.bindBuffer(gl.ARRAY_BUFFER, nBuffer);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    flatten(texturedCubeNormalsArray),
+    gl.STATIC_DRAW
+  );
+  gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(vNormal);
   gl.drawArrays(gl.TRIANGLES, 0, texturedCubePoints.length);
 }
 
 function wrist() {
+  gl.uniform1i(textureTypeLoc, 0);
   gl.uniform1i(useTextureLoc, false);
   gl.disableVertexAttribArray(vTexCoord);
   gl.uniform1i(gl.getUniformLocation(program, "useTexture"), false);
@@ -445,6 +571,7 @@ function wrist() {
 }
 
 function hand() {
+  gl.uniform1i(textureTypeLoc, 0);
   gl.uniform1i(useTextureLoc, false);
   gl.disableVertexAttribArray(vTexCoord);
   gl.uniform1i(gl.getUniformLocation(program, "useTexture"), false);
@@ -457,6 +584,7 @@ function hand() {
 }
 
 function claw() {
+  gl.uniform1i(textureTypeLoc, 0);
   gl.uniform1i(useTextureLoc, false);
   gl.disableVertexAttribArray(vTexCoord);
   gl.uniform1i(gl.getUniformLocation(program, "useTexture"), false);
@@ -468,12 +596,18 @@ function claw() {
 }
 
 function tread() {
+  gl.uniform1i(textureTypeLoc, 0);
   gl.uniform1i(useTextureLoc, false);
   gl.disableVertexAttribArray(vTexCoord);
-  gl.uniform1i(gl.getUniformLocation(program, "useTexture"), false);
   gl.uniform4fv(colorLoc, flatten(colors.tread));
+  gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, flatten(treadArray), gl.STATIC_DRAW);
   gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(vPosition);
+  gl.bindBuffer(gl.ARRAY_BUFFER, nBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, flatten(treadNormals), gl.STATIC_DRAW);
+  gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(vNormal);
   let m = mult(modelViewMatrix, scale4(1.3, 1.3, 1.0));
   gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(m));
   gl.drawArrays(gl.TRIANGLES, 0, treadArray.length);
@@ -567,7 +701,7 @@ function initNodes(id) {
       break;
 
     case arm1Id:
-      m = translate(0.0, -1.2, 0.0);
+      m = translate(0.0, -1.1, 0.0);
       figure[arm1Id] = createNode(m, arm, null, wrist1Id);
       break;
 
@@ -600,7 +734,7 @@ function initNodes(id) {
       break;
 
     case arm2Id:
-      m = translate(0.0, -1.2, 0);
+      m = translate(0.0, -1.1, 0);
       figure[arm2Id] = createNode(m, arm, null, wrist2Id);
       break;
 
@@ -676,7 +810,7 @@ function updateCamera() {
 }
 
 // ** Regarding Trash and Trash Can Part ** //
-colors.trash = rgbToVec4(255, 255, 0);
+colors.trash = rgbToVec4(88, 49, 6);
 colors.trashCan = rgbToVec4(40, 40, 40, 0.6);
 
 function renderTrash(position) {
@@ -787,7 +921,9 @@ function onMouseUp(event) {
 }
 
 let vBuffer, vPosition, tBuffer, vTexCoord;
-let useTextureLoc;
+let nBuffer, vNormal;
+
+let useTextureLoc, textureTypeLoc;
 
 window.onload = function init() {
   canvas = document.getElementById("gl-canvas");
@@ -806,7 +942,55 @@ window.onload = function init() {
 
   program = initShaders(gl, "vertex-shader", "fragment-shader");
   gl.useProgram(program);
-  ////////////////////////////////////////////////
+  textureTypeLoc = gl.getUniformLocation(program, "textureType");
+
+  const bgImage = document.getElementById("bgTextureImage");
+  const bgTexture = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, bgTexture);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bgImage);
+
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+  const bgTextureLoc = gl.getUniformLocation(program, "uBgTexture");
+  gl.uniform1i(bgTextureLoc, 1);
+
+  let lightPosition = vec4(0.0, 10.0, 10.0, 1.0);
+  let lightAmbient = vec4(0.2, 0.2, 0.2, 1.0);
+  let lightDiffuse = vec4(1.0, 1.0, 1.0, 1.0);
+  let lightSpecular = vec4(1.0, 1.0, 1.0, 1.0);
+
+  let materialAmbient = vec4(1.0, 1.0, 1.0, 1.0);
+  let materialDiffuse = vec4(1.0, 1.0, 1.0, 1.0);
+  let materialSpecular = vec4(1.0, 1.0, 1.0, 1.0);
+  let materialShininess = 50.0;
+
+  let ambientProduct = mult(lightAmbient, materialAmbient);
+  let diffuseProduct = mult(lightDiffuse, materialDiffuse);
+  let specularProduct = mult(lightSpecular, materialSpecular);
+
+  gl.uniform4fv(
+    gl.getUniformLocation(program, "lightPosition"),
+    flatten(lightPosition)
+  );
+  gl.uniform4fv(
+    gl.getUniformLocation(program, "ambientProduct"),
+    flatten(ambientProduct)
+  );
+  gl.uniform4fv(
+    gl.getUniformLocation(program, "diffuseProduct"),
+    flatten(diffuseProduct)
+  );
+  gl.uniform4fv(
+    gl.getUniformLocation(program, "specularProduct"),
+    flatten(specularProduct)
+  );
+  gl.uniform1f(gl.getUniformLocation(program, "shininess"), materialShininess);
+
   useTextureLoc = gl.getUniformLocation(program, "useTexture");
 
   const texSize = 64;
@@ -868,8 +1052,15 @@ window.onload = function init() {
   gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
   gl.enableVertexAttribArray(vPosition);
 
-  vBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+  generatecube();
+
+  nBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, nBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, flatten(normalsArray), gl.STATIC_DRAW);
+
+  vNormal = gl.getAttribLocation(program, "vNormal");
+  gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(vNormal);
 
   vPosition = gl.getAttribLocation(program, "vPosition");
   gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
@@ -885,11 +1076,25 @@ window.onload = function init() {
 
   colorLoc = gl.getUniformLocation(program, "uColor");
 
-  generatecube();
   generateTexturedCube();
-  generateCylinder(cylinderArray, 0.6, 0.5, 20);
-  generateCylinder(innerCylinderArray, 0.6, 0.5, 20);
-  generateCylinder(treadArray, 0.6, 0.5, 20);
+  generateCylinder(
+    cylinderArray,
+    cylinderNormals,
+    cylinderTexCoords,
+    0.6,
+    0.5,
+    20
+  );
+  generateCylinder(
+    innerCylinderArray,
+    innerCylinderNormals,
+    innerCylinderTexCoords,
+    0.6,
+    0.5,
+    20
+  );
+  generateCylinder(treadArray, treadNormals, treadTexCoords, 0.6, 0.5, 20);
+
   generateSemicircle(0.3, 20, 0.1);
   generateCircle(1.0, 20);
 
@@ -994,12 +1199,42 @@ function renderChargingBar(position) {
 }
 
 function renderBackground() {
-  const lineY = -0.22;
+  const bgVertices = [
+    vec4(-1, -1, -2.4, 1),
+    vec4(1, -1, -2.4, 1),
+    vec4(1, 1, -2.4, 1),
+    vec4(-1, -1, -2.4, 1),
+    vec4(1, 1, -2.4, 1),
+    vec4(-1, 1, -2.4, 1),
+  ];
 
-  gl.uniform4fv(colorLoc, flatten(vec4(0.0, 0.0, 0.0, 1.0)));
-  drawQuadBackground(-100, lineY, 100, 100);
-  gl.uniform4fv(colorLoc, flatten(vec4(0.4, 0.3, 0.2, 1.0)));
-  drawQuadBackground(-100, -100, 100, lineY);
+  const texCoords = [
+    vec2(0, 0.0),
+    vec2(1, 0.0),
+    vec2(1, 0.7),
+    vec2(0, 0.0),
+    vec2(1, 0.7),
+    vec2(0, 0.7),
+  ];
+
+  gl.uniform1i(textureTypeLoc, 2);
+  gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, flatten(bgVertices), gl.STATIC_DRAW);
+  gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(vPosition);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, tBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, flatten(texCoords), gl.STATIC_DRAW);
+  gl.vertexAttribPointer(vTexCoord, 2, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(vTexCoord);
+
+  gl.disableVertexAttribArray(vNormal);
+  gl.uniform1i(useTextureLoc, true);
+
+  const viewMatrix = mat4();
+  gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(viewMatrix));
+
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
 }
 
 function drawQuadBackground(x1, y1, x2, y2) {
@@ -1016,19 +1251,27 @@ function drawQuadBackground(x1, y1, x2, y2) {
   gl.bufferData(gl.ARRAY_BUFFER, flatten(bgVertices), gl.STATIC_DRAW);
   gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
   gl.enableVertexAttribArray(vPosition);
-
   gl.uniform1i(useTextureLoc, false);
+  const viewMatrix = lookAt(_eye, at, up);
+  gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(viewMatrix));
 
-  gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(mat4()));
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 }
 
 function render() {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  gl.disable(gl.DEPTH_TEST);
-  renderBackground();
-  gl.enable(gl.DEPTH_TEST);
   updateCamera();
+
+  gl.disable(gl.DEPTH_TEST);
+  gl.disableVertexAttribArray(vNormal);
+  gl.uniform1i(useTextureLoc, false);
+  gl.uniform4fv(colorLoc, flatten(vec4(0.5, 0.6, 0.8, 1.0)));
+
+  renderBackground();
+
+  gl.enableVertexAttribArray(vNormal);
+  gl.uniform1i(useTextureLoc, true);
+  gl.enable(gl.DEPTH_TEST);
 
   const viewMatrix = lookAt(_eye, at, up);
   const baseTransform = mult(
@@ -1295,27 +1538,22 @@ function render() {
       wrist1Yaw = -0.5;
       wrist2Yaw = -0.5;
       wristTarget = -1.5;
-      // if (translationCount < 2) {
-      //   translationCount += 1;
-      // } else {
-      //   translationCount = 0;
-      //   isBatteryLow = true;
-      // }
-      isBatteryLow = true;
+      if (translationCount < 2) {
+        translationCount += 1;
+      } else {
+        translationCount = 0;
+        isBatteryLow = true;
+      }
     }
   }
 
   // when wall E has completed three trash drops
   if (isBatteryLow) {
-    gl.uniform4fv(colorLoc, flatten(vec4(0.0, 0.0, 0.0, 1.0)));
     if (!hasRotatedToCS) {
       if (!batteryLowColor) {
-        colors.torso = rgbToVec4(102, 102, 102); // becomes black
-        colors.arm = rgbToVec4(102, 102, 102);
-        colors.neck = rgbToVec4(102, 102, 102);
-        gl.uniform4fv(colorLoc, flatten(colors.torso));
-        gl.uniform4fv(colorLoc, flatten(colors.arm));
-        gl.uniform4fv(colorLoc, flatten(colors.neck));
+        gl.uniform1i(useTextureLoc, false);
+        gl.uniform4fv(colorLoc, flatten(vec4(0.1, 0.1, 0.1, 1.0)));
+        batteryLowColor = true;
       }
 
       // it rotates to the charging station
@@ -1380,12 +1618,11 @@ function render() {
 
       // it finishes charging
       if (chargingTimer >= maxChargingTime && !hasRecoveredColor) {
-        colors.torso = rgbToVec4(248, 175, 58); // becomes original color
+        colors.torso = rgbToVec4(248, 175, 58);
         colors.arm = rgbToVec4(248, 175, 58);
         colors.neck = rgbToVec4(128, 77, 26);
-        gl.uniform4fv(colorLoc, flatten(colors.torso));
-        gl.uniform4fv(colorLoc, flatten(colors.arm));
-        gl.uniform4fv(colorLoc, flatten(colors.neck));
+
+        batteryLowColor = false;
         hasRecoveredColor = true;
         fallTargetY = -4.7;
         trashList = [];
